@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:background="@color/Black"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context="ep.radu.don.photofakereading.MainActivity">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_gravity="bottom"
+        android:background="@drawable/bakcground_reading"
+        android:gravity="bottom"
+        android:id="@+id/layout_buttons"
+        tools:layout_editor_absoluteX="8dp"
+        tools:layout_editor_absoluteY="8dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/layout_buttons"
+            android:weightSum="4"
+            android:background="@color/White">
+
+            <Button
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="@string/btn_text_prev"
+                android:id="@+id/btn_prev"/>
+            <Button
+                android:layout_width="@dimen/ico_medium"
+                android:layout_height="match_parent"
+                android:layout_margin="@dimen/padding_buttons"
+                android:layout_weight="1"
+                android:background="@drawable/ico_settings"
+                android:id="@+id/btn_settings"/>
+            <SurfaceView
+                android:layout_width="@dimen/ico_medium"
+                android:layout_height="match_parent"
+                android:id="@+id/surface_view"
+                android:layout_weight="1"
+                android:text="@string/btn_text_next" />
+            <Button
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:text="@string/btn_text_next"
+                android:id="@+id/btn_next"/>
+
+        </LinearLayout>
+
+    </LinearLayout>
+</LinearLayout>

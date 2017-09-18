@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">PhotoFakeReading</string>
+    <string name="btn_text_prev">prev</string>
+    <string name="btn_text_next">next</string>
+</resources>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="text_small"> 10sp </dimen>
+    <dimen name="text_medium"> 12sp </dimen>
+    <dimen name="text_big"> 16sp </dimen>
+    <dimen name="text_huge"> 22sp </dimen>
+
+    <dimen name="ico_small"> 18pt </dimen>
+    <dimen name="ico_medium"> 24pt </dimen>
+    <dimen name="ico_big"> 36pt </dimen>
+
+
+    <dimen name="padding_buttons"> 16px </dimen>
+
+
+    <dimen name="layout_buttons"> 24pt </dimen>
+
+</resources>
