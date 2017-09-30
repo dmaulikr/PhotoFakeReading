@@ -9,6 +9,7 @@ import java.util.List;
 
 import android.Manifest;
 import android.annotation.TargetApi;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.ImageFormat;
 import android.app.Activity;
@@ -29,25 +30,79 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 
-import butterknife.BindView;
 import butterknife.ButterKnife;
 import butterknife.OnClick;
+import util.IabHelper;
+import util.IabResult;
+import util.Inventory;
+import util.Purchase;
+
+import static android.content.ContentValues.TAG;
 
 
 public class MainActivity extends Activity implements SurfaceHolder.Callback {
-    @BindView(R.id.btn_next) Button btn;
+    static final String ITEM_SKU = "android.test.purchased";
+    private Button clickButton;
+    private Button buyButton;
     Camera camera;
+    private static final String TAG = "ep.radu.don";
+    IabHelper mHelper;
     SurfaceView surfaceView;
     SurfaceHolder surfaceHolder;
     public boolean WRITE_PERMISSION;
-    public static final String SD_CARD = "sdCard";
     public static final Integer REQUEST_CODE_WRITE_SDCARD = 5;
-    public static final String EXTERNAL_SD_CARD = "externalSdCard";
-    private static final String ENV_SECONDARY_STORAGE = "SECONDARY_STORAGE";
     private static final String FOLDER_OUTPUT_NAME = "Fake_reading_photos";
     PictureCallback rawCallback;
     ShutterCallback shutterCallback;
     PictureCallback jpegCallback;
+    IabHelper.OnIabPurchaseFinishedListener mPurchaseFinishedListener
+            = new IabHelper.OnIabPurchaseFinishedListener() {
+        public void onIabPurchaseFinished(IabResult result,
+                                          Purchase purchase)
+        {
+            if (result.isFailure()) {
+                // Handle error
+                return;
+            }
+            else if (purchase.getSku().equals(ITEM_SKU)) {
+                consumeItem();
+                buyButton.setEnabled(false);
+            }
+
+        }
+    };
+    IabHelper.OnConsumeFinishedListener mConsumeFinishedListener =
+            new IabHelper.OnConsumeFinishedListener() {
+                public void onConsumeFinished(Purchase purchase,
+                                              IabResult result) {
+
+                    if (result.isSuccess()) {
+                        clickButton.setEnabled(true);
+                    } else {
+                        // handle error
+                    }
+                }
+            };
+    IabHelper.QueryInventoryFinishedListener mReceivedInventoryListener
+            = new IabHelper.QueryInventoryFinishedListener() {
+        public void onQueryInventoryFinished(IabResult result,
+                                             Inventory inventory) {
+
+
+            if (result.isFailure()) {
+                // Handle failure
+            } else {
+                try {
+                    mHelper.consumeAsync(inventory.getPurchase(ITEM_SKU),
+                            mConsumeFinishedListener);
+                } catch (Exception e) {
+                    Log.e("Error", "cant start async process consume: " + e);
+                }
+            }
+        }
+    };
+
+
     // Storage Permissions
     private static final int REQUEST_EXTERNAL_STORAGE = 1;
     private static String[] PERMISSIONS_STORAGE = {
@@ -123,6 +178,56 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
             }
         };
     }
+    public void consumeItem() {
+        try {
+            mHelper.queryInventoryAsync(mReceivedInventoryListener);
+        } catch (Exception e){
+            Log.e("ERROR", "can't consume item: " + e);
+        }
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        buyButton = findViewById(R.id.btn_prev);
+        clickButton.setEnabled(false);
+
+        String base64EncodedPublicKey =
+                "<your license key here>";
+
+        mHelper = new IabHelper(this, base64EncodedPublicKey);
+
+        mHelper.startSetup(new IabHelper.OnIabSetupFinishedListener() {
+               public void onIabSetupFinished(IabResult result)
+               {
+                   if (!result.isSuccess()) {
+                       Log.d(TAG, "In-app Billing failed:" + result);
+                   } else {
+                       Log.d(TAG, "In-app Billing is set up OK");
+                   }
+               }
+       });
+    }
+
+    public void buyClick(View view) {
+        try {
+            mHelper.launchPurchaseFlow(this, ITEM_SKU, 10001,
+                    mPurchaseFinishedListener, "mypurchasetoken");
+        } catch (Exception e){
+            Log.e("ERROR", "buy click not working: " + e);
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode,
+                                    Intent data)
+    {
+        if (!mHelper.handleActivityResult(requestCode,
+                resultCode, data)) {
+            super.onActivityResult(requestCode, resultCode, data);
+        }
+    }
+
     @OnClick(R.id.btn_next)
     public void onClick(View view) {
         try {
