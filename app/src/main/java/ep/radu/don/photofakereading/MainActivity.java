@@ -42,7 +42,6 @@ import static android.content.ContentValues.TAG;
 
 public class MainActivity extends Activity implements SurfaceHolder.Callback {
     static final String ITEM_SKU = "android.test.purchased";
-    private Button clickButton;
     private Button buyButton;
     Camera camera;
     private static final String TAG = "ep.radu.don";
@@ -77,7 +76,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
                                               IabResult result) {
 
                     if (result.isSuccess()) {
-                        clickButton.setEnabled(true);
+                        //ToDo here on purchase
                     } else {
                         // handle error
                     }
@@ -190,7 +189,6 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
     protected void onStart() {
         super.onStart();
         buyButton = findViewById(R.id.btn_prev);
-        clickButton.setEnabled(false);
 
         String base64EncodedPublicKey =
                 "<your license key here>";
