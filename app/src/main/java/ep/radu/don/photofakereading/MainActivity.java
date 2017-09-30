@@ -1,35 +1,25 @@
 package ep.radu.don.photofakereading;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.HashMap;
+import java.security.DomainCombiner;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 
-import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
+import android.Manifest;
+import android.annotation.TargetApi;
+import android.content.pm.PackageManager;
 import android.graphics.ImageFormat;
-import android.hardware.camera2.CameraAccessException;
-import android.hardware.camera2.CameraCaptureSession;
-import android.hardware.camera2.CameraCharacteristics;
-import android.hardware.camera2.CameraDevice;
-import android.hardware.camera2.CameraManager;
-import android.hardware.camera2.CameraMetadata;
-import android.hardware.camera2.CaptureRequest;
-import android.hardware.camera2.CaptureResult;
 import android.app.Activity;
 import android.hardware.Camera;
 import android.hardware.Camera.PictureCallback;
 import android.hardware.Camera.ShutterCallback;
-import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-import android.provider.MediaStore;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.Surface;
@@ -37,32 +27,65 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.widget.Button;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import butterknife.OnClick;
 
+
 public class MainActivity extends Activity implements SurfaceHolder.Callback {
     @BindView(R.id.btn_next) Button btn;
     Camera camera;
     SurfaceView surfaceView;
     SurfaceHolder surfaceHolder;
+    public boolean WRITE_PERMISSION;
     public static final String SD_CARD = "sdCard";
+    public static final Integer REQUEST_CODE_WRITE_SDCARD = 5;
     public static final String EXTERNAL_SD_CARD = "externalSdCard";
     private static final String ENV_SECONDARY_STORAGE = "SECONDARY_STORAGE";
     private static final String FOLDER_OUTPUT_NAME = "Fake_reading_photos";
     PictureCallback rawCallback;
     ShutterCallback shutterCallback;
     PictureCallback jpegCallback;
+    // Storage Permissions
+    private static final int REQUEST_EXTERNAL_STORAGE = 1;
+    private static String[] PERMISSIONS_STORAGE = {
+            Manifest.permission.READ_EXTERNAL_STORAGE,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE
+    };
 
+    /**
+     * Checks if the app has permission to write to device storage
+     *
+     * If the app does not has permission then the user will be prompted to grant permissions
+     *
+     * @param activity
+     */
+    public static void verifyStoragePermissions(Activity activity) {
+        // Check if we have write permission
+        int permission = ActivityCompat.checkSelfPermission(activity, Manifest.permission.WRITE_EXTERNAL_STORAGE);
+
+        if (permission != PackageManager.PERMISSION_GRANTED) {
+            Log.e("Permission: ", "ITS  NOT OK");
+            // We don't have permission so prompt the user
+            ActivityCompat.requestPermissions(
+                    activity,
+                    PERMISSIONS_STORAGE,
+                    REQUEST_EXTERNAL_STORAGE
+            );
+        } else {
+            Log.e("Permission: ", "ITS OK");
+        }
+    }
     /** Called when the activity is first created. */
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         ButterKnife.bind(this);
+        WRITE_PERMISSION = CheckStoragePermission();
+        verifyStoragePermissions(MainActivity.this);
 
 
         surfaceView =  findViewById(R.id.surface_view);
@@ -74,60 +97,29 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
 
         // deprecated setting, but required on Android versions prior to 3.0
         surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
-
         jpegCallback = new PictureCallback() {
             public void onPictureTaken(byte[] data, Camera camera) {
-                FileOutputStream outStream;
-                try {
-                    Boolean ok = false;
-                    String mPath = getAllStorageLocations().get(EXTERNAL_SD_CARD);
-                    File dir = new File(mPath);
-                    if(dir.exists() && dir.isDirectory()) {
-                        ok = true;
-                    } else {
-                        mPath = getAllStorageLocations().get(SD_CARD);
-                        dir = new File(mPath);
-                        if(dir.exists() && dir.isDirectory()) {
-                            ok = true;
-                        } else {
-                            mPath = getAllStorageLocations().get(ENV_SECONDARY_STORAGE);
-                            dir = new File(mPath);
-                            if(dir.exists() && dir.isDirectory()) {
-                                ok = true;
-                            }
-                        }
-                    }
-                    if (ok == true) {
-                        File theDir = new File(mPath + File.separator  + FOLDER_OUTPUT_NAME);
-
-                        // if the directory does not exist, create it
-                        if (!theDir.exists()) {
-                            System.out.println("creating directory: " + theDir.getName());
-                        }
-                        try{
-                            theDir.mkdir();
-                            String fPath =  mPath + File.separator  +
-                                    FOLDER_OUTPUT_NAME + File.separator +
-                                    System.currentTimeMillis() + ".png";
-                            File fLocation = new File(fPath);
-                            Log.e("_______", mPath);
-                            outStream = new FileOutputStream(fLocation);
-                            outStream.write(data);
-                            outStream.close();
-                            Log.e("Log", "onPictureTaken: " + fPath + ", wrote bytes: " + data.length);
-                        }
-                        catch(Exception se){
-                            Log.e("Error", "CREATING OUTPUT DIRECTORY: " + se);
-                        }
-                    } else {
-                        Log.e("Error", "STORAGE FKED");
-                    }
-                } catch (Exception e) {
-                    Log.e("Error", "Getting sdcard path -> mPath uhh: " + e);
-                } finally {
-                }
-                Toast.makeText(getApplicationContext(), "Picture Saved", Toast.LENGTH_SHORT).show();
-                refreshCamera();
+        FileOutputStream outStream;
+        try {
+            File fileOut =  getOutputFile();
+            if (fileOut != null) {
+                Log.e("FILE:", fileOut.getAbsolutePath());
+                fileOut.createNewFile();
+                String fileName = fileOut.getAbsolutePath();
+                outStream = new FileOutputStream(fileOut);
+                outStream.write(data);
+                outStream.close();
+                boolean resultWorldReadable = fileOut.setReadable(true, false);
+                Toast.makeText(getApplicationContext(), fileName, Toast.LENGTH_SHORT).show();
+                Log.e("Log", "onPictureTaken: " + fileName + ", wrote bytes: " + data.length);
+            } else {
+                Toast.makeText(getApplicationContext(), "Something went wrong! Sorry", Toast.LENGTH_SHORT).show();
+            }
+        }
+        catch(Exception se){
+            Log.e("Error", se.toString());
+        }
+        refreshCamera();
             }
         };
     }
@@ -147,21 +139,87 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         //camera.takePicture(null, null, jpegCallback);
         camera.takePicture(shutterCallback, rawCallback, jpegCallback);
     }
+    @TargetApi(Build.VERSION_CODES.M)
+    public boolean CheckStoragePermission() {
+        int permissionCheckRead = ContextCompat.checkSelfPermission(getApplicationContext(),
+                Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        if (permissionCheckRead != PackageManager.PERMISSION_GRANTED) {
+            if (ActivityCompat.shouldShowRequestPermissionRationale(MainActivity.this,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+                // Show an expanation to the user *asynchronously* -- don't block
+                // this thread waiting for the user's response! After the user
+                // sees the explanation, try again to request the permission.
+                ActivityCompat.requestPermissions(MainActivity.this,
+                        new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                        REQUEST_CODE_WRITE_SDCARD);
+            } else {
+                // No explanation needed, we can request the permission.
 
-    // get paths to writing partitions on phone
-    public static Map<String, String> getAllStorageLocations() {
-        Map<String, String> storageLocations = new HashMap<>(10);
-        File sdCard = new File(Environment.getExternalStorageDirectory(), "DCIM");
-        storageLocations.put(SD_CARD, sdCard.getAbsolutePath());
-        final String rawSecondaryStorage = System.getenv(ENV_SECONDARY_STORAGE)  +  Environment.DIRECTORY_DCIM ;
-        if (!TextUtils.isEmpty(rawSecondaryStorage)) {
-            String[] externalCards = rawSecondaryStorage.split(":");
-            for (int i = 0; i < externalCards.length; i++) {
-                String path = externalCards[i];
-                storageLocations.put(EXTERNAL_SD_CARD + String.format(i == 0 ? "" : "_%d", i), path);
+                ActivityCompat.requestPermissions(MainActivity.this,
+                        new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                        REQUEST_CODE_WRITE_SDCARD);
+
+                // MY_PERMISSIONS_REQUEST_READ_CONTACTS is an
+                // app-defined int constant. The callback method gets the
+                // result of the request.
+            }
+            return false;
+        } else
+            return true;
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                                           int[] grantResults) {
+        // BEGIN_INCLUDE(onRequestPermissionsResult)
+        if (requestCode == REQUEST_CODE_WRITE_SDCARD) {
+            // Request for camera permission.
+            if (grantResults.length == 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // Permission has been granted. Start camera preview Activity.
+                Log.e("PERM; ", "yup");
+            } else {
+                Log.e("PERM; ", "meh");
+                // Permission request was denied.
             }
         }
-        return storageLocations;
+        // END_INCLUDE(onRequestPermissionsResult)
+    }
+    // get paths to writing partitions on phone
+    public  File getOutputFile() {
+        //Map<String, String> storageLocations = new HashMap<>(10);
+        //File sdCard = new File(Environment.getExternalStorageDirectory(), "DCIM");
+        //storageLocations.put(SD_CARD, sdCard.getAbsolutePath());
+        final String internalPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM).toString();
+        String externalPath = "";
+        if (!TextUtils.isEmpty(internalPath)) {
+            String[] externalCards = internalPath.split(":");
+            for (int i = 0; i < externalCards.length; i++) {
+                externalPath =  externalCards[i];
+                //storageLocations.put(EXTERNAL_SD_CARD + String.format(i == 0 ? "" : "_%d", i), externalPath);
+            }
+        }
+        Log.e("p",internalPath);
+        Log.e("p",externalPath);
+        File fileReturn;
+        File outDir;
+        if (isExternalStorageAvailable() && !isExternalStorageReadOnly() && WRITE_PERMISSION) { //return external memory
+            outDir = new File(externalPath + File.separator + FOLDER_OUTPUT_NAME);
+        } else { //return internal memory
+            outDir = new File(internalPath + File.separator + FOLDER_OUTPUT_NAME);
+        }
+        if (!outDir.exists()){
+            try {
+                outDir.mkdir();
+                boolean resWorldReadable = outDir.setReadable(true, false);
+                return (new File(outDir.getAbsoluteFile() +  File.separator +
+                        System.currentTimeMillis() + ".png"));
+            } catch (Exception e) {
+                Log.e("ERROR: ", "Couldn't create outDir: " + e);
+                return (null);
+            }
+        }
+        return (new File(outDir.getAbsoluteFile() + File.separator +
+                System.currentTimeMillis() + ".png"));
     }
     public void refreshCamera() {
         if (surfaceHolder.getSurface() == null) {
@@ -192,7 +250,21 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback {
         // the preview.
         refreshCamera();
     }
+    private static boolean isExternalStorageReadOnly() {
+        String extStorageState = Environment.getExternalStorageState();
+        if (Environment.MEDIA_MOUNTED_READ_ONLY.equals(extStorageState)) {
+            return true;
+        }
+        return false;
+    }
 
+    private static boolean isExternalStorageAvailable() {
+        String extStorageState = Environment.getExternalStorageState();
+        if (Environment.MEDIA_MOUNTED.equals(extStorageState)) {
+            return true;
+        }
+        return false;
+    }
     public void surfaceCreated(SurfaceHolder holder) {
         try {
             // open the camera
